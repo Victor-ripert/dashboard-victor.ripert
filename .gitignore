@@ -1,0 +1,23 @@
+# Virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
+
+# Byte-compiled / cache files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+**/.pytest_cache/
+
+# Environment local secrets
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Logs
+*.log
+**/node_modules/
