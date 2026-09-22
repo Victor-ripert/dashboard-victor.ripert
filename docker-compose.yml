@@ -1,0 +1,67 @@
+services:
+  # ========================================================
+  # Interactive Brokers Gateway (Headless Paper Trading)
+  # ========================================================
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:latest
+    container_name: ib-gateway
+    restart: unless-stopped
+    environment:
+      - TWS_USERID=${TWS_USERID:-edemo}
+      - TWS_PASSWORD=${TWS_PASSWORD:-demouser}
+      - TRADING_MODE=${TRADING_MODE:-paper}
+      - READ_ONLY_API=no
+      - TWOFA_TIMEOUT_ACTION=restart
+    ports:
+      - "4002:4002"
+
+  # ========================================================
+  # Interactive Brokers Trading & Purchasing Microservice
+  # ========================================================
+  trading-api:
+    build:
+      context: ./service/trading_api
+      dockerfile: Dockerfile
+    container_name: trading-api-microservice
+    restart: unless-stopped
+    depends_on:
+      - ib-gateway
+    environment:
+      - IB_HOST=ib-gateway
+      - IB_PORT=4002
+      - IB_CLIENT_ID=1
+      - IB_TIMEOUT=10.0
+      - MOCK_MODE=${MOCK_MODE:-false}
+      - AUTO_FALLBACK_MOCK=${AUTO_FALLBACK_MOCK:-true}
+      - CORS_ORIGINS=*
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ========================================================
+  # Template for Future Service: Frontend Dashboard (e.g. React/Vite/Next)
+  # ========================================================
+  # dashboard-ui:
+  #   build:
+  #     context: ./service/dashboard_ui
+  #     dockerfile: Dockerfile
+  #   container_name: dashboard-ui
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - trading-api
+
+  # ========================================================
+  # Template for Future Service: Market Analytics / History (Python / Go / etc.)
+  # ========================================================
+  # analytics-service:
+  #   build:
+  #     context: ./service/analytics_service
+  #     dockerfile: Dockerfile
+  #   container_name: analytics-service
+  #   ports:
+  #     - "8001:8001"
