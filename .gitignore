@@ -25,6 +25,8 @@ __pycache__/
 # Logs
 *.log
 **/node_modules/
+.agent
+AGENT.md
 
 ##############
 #   GO/GIN   #

@@ -5,6 +5,8 @@ import (
 
 	"gateway/internal/api"
 	"gateway/internal/config"
+	"gateway/internal/middleware"
+	"gateway/internal/pages"
 	"gateway/internal/proxy"
 )
 
@@ -15,13 +17,24 @@ func NewRouter(cfg config.Config) *gin.Engine {
 	router.Use(gin.Recovery())
 	router.Use(middleware.RequestID())
 
-	tradingAPI := proxy.NewTradingAPIClient(cfg.TradingAPIURL)
+	tradingAPI := proxy.NewIBAPIProxy(cfg.TradingAPIURL)
 
-	api.RegisterRoutes(router, tradingAPI)
-
-	// TODO: Ajouter plus tard le service des fichiers statiques React.
-	// TODO: Ajouter plus tard les middlewares d'authentification.
-	// TODO: Ajouter plus tard la configuration CORS stricte.
+	registerPageRoutes(router)
+	registerAPIRoutes(router, tradingAPI)
 
 	return router
+}
+
+func registerPageRoutes(router *gin.Engine) {
+	pages.RegisterRoutes(router)
+
+	// TODO: Servir le frontend React compilé depuis ./frontend/dist.
+	// TODO: Ajouter un fallback vers index.html pour les routes React.
+}
+
+func registerAPIRoutes(
+	router *gin.Engine,
+	tradingAPI *proxy.IBAPIProxy,
+) {
+	api.RegisterRoutes(router, tradingAPI)
 }
