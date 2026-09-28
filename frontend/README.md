@@ -1,16 +1,42 @@
-# React + Vite
+# Microservice Widget Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This version follows a widget model: **one interactive card per microservice**. It is intentionally closer to the attached reference than a traditional finance dashboard.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+The Vite server proxies `/api/*` to the Gin gateway at `http://localhost:8080`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Included service cards
 
-## Expanding the Oxlint configuration
+- Trading: balance, asset search/selection, buy/sell mode, quantity, estimated total.
+- Weather: city search and weather details.
+- GitHub activity: contribution grid and recent commits.
+- Service health: gateway and microservice status.
+- News feed: compact article list.
+- Notes: local interactive project notes.
+- Widget picker: hide and restore cards with `Add widget`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+All displayed values are explicit demo data. API calls are isolated in `src/api/services.js`, with TODO comments where routes must be matched to the Gin gateway.
+
+## Recommended gateway routes
+
+```text
+GET  /api/trading/balance
+GET  /api/trading/assets?search=AAPL
+POST /api/trading/orders
+GET  /api/weather?city=Paris
+GET  /api/github/activity
+GET  /api/health
+```
+
+## Add a microservice card
+
+1. Create `src/components/widgets/MyServiceWidget.jsx`.
+2. Add its gateway calls to `src/api/services.js`.
+3. Add one entry to `widgetDefinitions` in `src/App.jsx`.
+4. Choose its grid size, for example `span-3 row-2` or `span-6 row-3`.
