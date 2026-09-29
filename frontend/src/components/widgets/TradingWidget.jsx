@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Search, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Search, Wallet } from "lucide-react";
 import { assets } from "../../data/demoData";
+import { tradingApi } from "../../api/services";
 
 export default function TradingWidget() {
   const [side, setSide] = useState("buy");
@@ -8,13 +9,39 @@ export default function TradingWidget() {
   const [selected, setSelected] = useState(assets[0]);
   const [quantity, setQuantity] = useState("1");
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const filtered = assets.filter((asset) => `${asset.symbol} ${asset.name}`.toLowerCase().includes(query.toLowerCase()));
   const total = useMemo(() => selected.price * Math.max(Number(quantity) || 0, 0), [selected, quantity]);
 
-  function choose(asset) { setSelected(asset); setQuery(""); setMessage(""); }
-  function submit(event) {
+  function choose(asset) {
+    setSelected(asset);
+    setQuery("");
+    setMessage("");
+    setIsError(false);
+  }
+
+  async function submit(event) {
     event.preventDefault();
-    setMessage(`${side === "buy" ? "Buy" : "Sell"} order prepared: ${quantity || 0} ${selected.symbol}`);
+    setLoading(true);
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const payload = {
+        symbol: selected.symbol,
+        side,
+        quantity: Number(quantity) || 0,
+        price: selected.price,
+      };
+      const response = await tradingApi.createOrder(payload);
+      setMessage(response?.message || `${side === "buy" ? "Buy" : "Sell"} order placed: ${quantity || 0} ${selected.symbol}`);
+    } catch (err) {
+      setIsError(true);
+      setMessage(err.message || "Failed to place order");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -110,16 +137,26 @@ export default function TradingWidget() {
 
       <button
         type="submit"
-        className={`mt-2 flex h-8 w-full items-center justify-center rounded-md text-xs font-bold text-slate-950 transition active:scale-[.99] ${
+        disabled={loading}
+        className={`mt-2 flex h-8 w-full items-center justify-center rounded-md text-xs font-bold text-slate-950 transition active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed ${
           side === "buy" ? "bg-emerald-400 hover:bg-emerald-300" : "bg-rose-400 hover:bg-rose-300"
         }`}
       >
-        <Wallet className="mr-1.5 inline" size={14} />
-        {"Place an order"}
+        {loading ? (
+          <Loader2 className="mr-1.5 inline animate-spin" size={14} />
+        ) : (
+          <Wallet className="mr-1.5 inline" size={14} />
+        )}
+        {loading ? "Placing order..." : "Place order"}
       </button>
 
       {message && (
-        <p className="mt-2 rounded bg-sky-400/10 p-1.5 text-[11px] text-sky-300" role="status">
+        <p
+          className={`mt-2 rounded p-1.5 text-[11px] ${
+            isError ? "bg-rose-400/10 text-rose-300 border border-rose-400/20" : "bg-sky-400/10 text-sky-300"
+          }`}
+          role="status"
+        >
           {message}
         </p>
       )}
