@@ -3,20 +3,12 @@ import { Activity, CloudSun, GitFork, Newspaper, NotepadText, TrendingUp } from 
 import Header from "./components/layout/Header";
 import WidgetPicker from "./components/layout/WidgetPicker";
 import Widget from "./components/ui/Widget";
-// import GithubWidget from "./components/widgets/GithubWidget";
-// import HealthWidget from "./components/widgets/HealthWidget";
-// import NewsWidget from "./components/widgets/NewsWidget";
-// import NotesWidget from "./components/widgets/NotesWidget";
 import TradingWidget from "./components/widgets/TradingWidget";
 import WeatherWidget from "./components/widgets/WeatherWidget";
 
 const widgetDefinitions = [
   { id: "trading", title: "Trading", icon: TrendingUp, size: "span-4 row-2", component: TradingWidget},
   { id: "weather", title: "Weather", icon: CloudSun, size: "span-3 row-2", component: WeatherWidget},
-  // { id: "github", title: "GitHub activity", icon: GitFork, size: "span-3 row-2", status: "Demo", component: GithubWidget, footer: "GitHub activity" },
-  // { id: "health", title: "Services", icon: Activity, size: "span-2 row-2", component: HealthWidget, footer: "Gateway overview" },
-  // { id: "news", title: "News feed", icon: Newspaper, size: "span-3 row-2", status: "Demo", component: NewsWidget, footer: "Latest news" },
-  // { id: "notes", title: "Project notes", icon: NotepadText, size: "span-3 row-2", component: NotesWidget, footer: "Local notes" },
 ];
 
 export default function App() {
