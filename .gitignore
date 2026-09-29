@@ -113,3 +113,5 @@ Temporary Items
 ################
 
 GUIDE_CUSTOMISATION_UI.md
+dist
+.vite/
