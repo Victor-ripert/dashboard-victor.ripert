@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dashboard
+      POSTGRES_PASSWORD: dashboard
+      POSTGRES_DB: dashboard
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dashboard"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  weather:
+    build: ./service/weather
+
+  gateway:
+    build: ./gateway
+    environment:
+      WEATHER_URL: http://weather:4000
+      DATABASE_URL: postgres://dashboard:dashboard@db:5432/dashboard?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      weather:
+        condition: service_started
+
+volumes:
+  db_data:

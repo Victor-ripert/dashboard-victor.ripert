@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"dashboard/gateway/auth"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -22,10 +26,26 @@ func getenv(key, fallback string) string {
 
 func main() {
 	weatherURL := getenv("WEATHER_URL", "http://localhost:4000")
+	databaseURL := getenv("DATABASE_URL", "postgres://dashboard:dashboard@localhost:5432/dashboard?sslmode=disable")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET must be set")
+	}
+
+	store, err := auth.NewPostgresStore(context.Background(), databaseURL)
+	if err != nil {
+		log.Fatalf("Database unavailable: %v", err)
+	}
+	authService := auth.New(store, jwtSecret)
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
-	r.Use(cors.Default())
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowAllOrigins = true
+	corsConfig.AddAllowHeaders("Authorization")
+	r.Use(cors.New(corsConfig))
+
+	authService.Routes(r)
 
 	// Aggregated metadata for the front-end, built from each service's /about.json
 	r.GET("/about.json", func(c *gin.Context) {
@@ -51,8 +71,8 @@ func main() {
 		})
 	})
 
-	// GET /weather/widgets/current_weather?city=Paris -> weather service
-	r.GET("/weather/widgets/:widget", func(c *gin.Context) {
+	// GET /weather/widgets/current_weather?city=Paris -> weather service (logged-in users only)
+	r.GET("/weather/widgets/:widget", authService.RequireAuth(), func(c *gin.Context) {
 		target := weatherURL + "/widgets/" + url.PathEscape(c.Param("widget")) + "?" + c.Request.URL.RawQuery
 		resp, err := client.Get(target)
 		if err != nil {
