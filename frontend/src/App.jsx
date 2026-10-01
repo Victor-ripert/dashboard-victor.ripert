@@ -25,7 +25,7 @@ export default function App() {
   function hideWidget(id) { setVisible((items) => items.filter((item) => item !== id)); }
 
   return (
-    <div className="min-h-screen bg-shell text-slate-100 dark:bg-shell">
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-shell dark:text-slate-100">
       <Header dark={dark} onToggleTheme={toggleTheme} onOpenWidgets={() => setPickerOpen(true)} />
       <main className="mx-auto max-w-[1800px] p-3 sm:p-5">
         {visible.length ? <section className="dashboard-grid" aria-label="Service widgets">{widgetDefinitions.filter((widget) => visible.includes(widget.id)).map(({ component: Component, ...widget }) => <Widget key={widget.id} {...widget} onHide={hideWidget}><Component /></Widget>)}</section> : <section className="grid min-h-[60vh] place-items-center rounded-lg border border-dashed border-white/10"><div className="text-center"><p className="text-lg font-bold">No widgets displayed</p><button onClick={() => setPickerOpen(true)} className="mt-3 rounded-md bg-sky-400 px-4 py-2 text-sm font-bold text-slate-950">Add a widget</button></div></section>}
