@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Weather Service
+  version: 1.0.0
+  description: Provides sky overview, temperature and precipitation widgets.
+
+servers:
+  - url: http://localhost:4000
+
+paths:
+  /about.json:
+    get:
+      summary: Service and widget metadata
+      operationId: getAbout
+      responses:
+        "200":
+          description: Metadata describing this service's widgets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/About"
+
+  /widgets/current_weather:
+    get:
+      summary: Current weather for a city
+      operationId: getCurrentWeather
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Paris
+      responses:
+        "200":
+          description: Current weather data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentWeather"
+        "400":
+          description: Missing required param
+        "502":
+          description: Upstream weather provider error
+
+components:
+  schemas:
+    About:
+      type: object
+      properties:
+        name:
+          type: string
+        widgets:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              params:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                      enum: [string, integer]
+
+    CurrentWeather:
+      type: object
+      properties:
+        city:
+          type: string
+        temperature_celsius:
+          type: number
+        precipitation_mm:
+          type: number
+        sky:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
