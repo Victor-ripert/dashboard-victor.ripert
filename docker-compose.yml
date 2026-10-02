@@ -1,67 +1,36 @@
 services:
-  # ========================================================
-  # Interactive Brokers Gateway (Headless Paper Trading)
-  # ========================================================
-  ib-gateway:
-    image: ghcr.io/gnzsnz/ib-gateway:latest
-    container_name: ib-gateway
-    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
     environment:
-      - TWS_USERID=${TWS_USERID:-edemo}
-      - TWS_PASSWORD=${TWS_PASSWORD:-demouser}
-      - TRADING_MODE=${TRADING_MODE:-paper}
-      - READ_ONLY_API=no
-      - TWOFA_TIMEOUT_ACTION=restart
+      POSTGRES_USER: dashboard
+      POSTGRES_PASSWORD: dashboard
+      POSTGRES_DB: dashboard
     ports:
-      - "4002:4002"
-
-  # ========================================================
-  # Interactive Brokers Trading & Purchasing Microservice
-  # ========================================================
-  trading-api:
-    build:
-      context: ./service/trading_api
-      dockerfile: Dockerfile
-    container_name: trading-api-microservice
-    restart: unless-stopped
-    depends_on:
-      - ib-gateway
-    environment:
-      - IB_HOST=ib-gateway
-      - IB_PORT=4002
-      - IB_CLIENT_ID=1
-      - IB_TIMEOUT=10.0
-      - MOCK_MODE=${MOCK_MODE:-false}
-      - AUTO_FALLBACK_MOCK=${AUTO_FALLBACK_MOCK:-true}
-      - CORS_ORIGINS=*
-    ports:
-      - "8000:8000"
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U dashboard"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
-  # ========================================================
-  # Template for Future Service: Frontend Dashboard (e.g. React/Vite/Next)
-  # ========================================================
-  # dashboard-ui:
-  #   build:
-  #     context: ./service/dashboard_ui
-  #     dockerfile: Dockerfile
-  #   container_name: dashboard-ui
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - trading-api
+  weather:
+    build: ./service/weather
 
-  # ========================================================
-  # Template for Future Service: Market Analytics / History (Python / Go / etc.)
-  # ========================================================
-  # analytics-service:
-  #   build:
-  #     context: ./service/analytics_service
-  #     dockerfile: Dockerfile
-  #   container_name: analytics-service
-  #   ports:
-  #     - "8001:8001"
+  gateway:
+    build: ./gateway
+    environment:
+      WEATHER_URL: http://weather:4000
+      DATABASE_URL: postgres://dashboard:dashboard@db:5432/dashboard?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      weather:
+        condition: service_started
+
+volumes:
+  db_data:
