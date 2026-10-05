@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+
 
 class ProductType(str, Enum):
     STK = "STK"
@@ -10,40 +11,37 @@ class ProductType(str, Enum):
     OPT = "OPT"
     FUT = "FUT"
 
+
 class OrderAction(str, Enum):
     BUY = "BUY"
     SELL = "SELL"
 
+
 class OrderType(str, Enum):
-    MKT = "MKT"       # Market Order
-    LMT = "LMT"       # Limit Order
-    STP = "STP"       # Stop Order
+    MKT = "MKT"
+    LMT = "LMT"
+    STP = "STP"
+
 
 class PurchaseRequest(BaseModel):
-    """Request schema for purchasing a financial product from the dashboard."""
-    symbol: str = Field(..., description="Financial product ticker or symbol, e.g., 'AAPL', 'BTC', 'EURUSD'")
-    quantity: float = Field(..., gt=0, description="Quantity to purchase (must be > 0)")
-    product_type: ProductType = Field(default=ProductType.STK, description="Product category: STK, ETF, CRYPTO, CASH, OPT, FUT")
-    order_type: OrderType = Field(default=OrderType.MKT, description="Order execution type: MKT (Market), LMT (Limit), STP (Stop)")
-    price: Optional[float] = Field(default=None, description="Limit price or Stop price (required if order_type is LMT or STP)")
-    currency: str = Field(default="USD", description="Currency (USD, EUR, GBP, etc.)")
-    exchange: Optional[str] = Field(default=None, description="Target exchange (e.g. SMART, ISLAND, PAXOS, IDEALPRO)")
+    symbol: str
+    quantity: float = Field(..., gt=0)
+    product_type: ProductType = ProductType.STK
+    order_type: OrderType = OrderType.MKT
+    price: Optional[float] = None
+    currency: str = "USD"
+    exchange: Optional[str] = None
 
-    @field_validator("symbol")
+    @field_validator("symbol", "currency")
     @classmethod
-    def clean_symbol(cls, v: str) -> str:
+    def format_uppercase(cls, v: str) -> str:
         cleaned = v.strip().upper()
         if not cleaned:
-            raise ValueError("Symbol cannot be empty")
+            raise ValueError("Value cannot be empty")
         return cleaned
 
-    @field_validator("currency")
-    @classmethod
-    def clean_currency(cls, v: str) -> str:
-        return v.strip().upper()
 
 class PurchaseResponse(BaseModel):
-    """Response returned upon purchasing a financial product."""
     order_id: int | str
     symbol: str
     product_type: str
@@ -59,8 +57,8 @@ class PurchaseResponse(BaseModel):
     timestamp: str
     message: Optional[str] = None
 
+
 class QuoteResponse(BaseModel):
-    """Real-time market quote for a financial product."""
     symbol: str
     product_type: str
     currency: str
@@ -74,7 +72,6 @@ class QuoteResponse(BaseModel):
 
 
 class PositionItem(BaseModel):
-    """Active portfolio position details."""
     account: str
     symbol: str
     sec_type: str
@@ -87,17 +84,15 @@ class PositionItem(BaseModel):
 
 
 class AccountSummary(BaseModel):
-    """Financial account overview for the dashboard."""
     currency: str
     available_funds: float
     buying_power: float
     net_liquidation: float
     cash_balance: float
-    mode: str  # "LIVE" or "MOCK"
+    mode: str
 
 
 class CloseRequest(BaseModel):
-    """Request to close an existing position."""
     symbol: str
 
     @field_validator("symbol")
@@ -107,7 +102,6 @@ class CloseRequest(BaseModel):
 
 
 class OrderRequest(BaseModel):
-    """Legacy order request for backward compatibility."""
     symbol: str
     action: str
     qty: int
