@@ -18,12 +18,24 @@ services:
   weather:
     build: ./service/weather
 
+  # Development mail server: catches every email instead of delivering it.
+  # Read the emails at http://localhost:8025 (or MAILPIT_UI_PORT).
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      # SMTP, published for a gateway running outside Docker (go run)
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+
   gateway:
     build: ./gateway
     environment:
       WEATHER_URL: http://weather:4000
       DATABASE_URL: postgres://dashboard:dashboard@db:5432/dashboard?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      # Mailpit by default; set SMTP_HOST / SMTP_PORT in .env to use a real provider
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     depends_on:
@@ -31,6 +43,8 @@ services:
         condition: service_healthy
       weather:
         condition: service_started
+      mailpit:
+        condition: service_healthy
 
 volumes:
   db_data:

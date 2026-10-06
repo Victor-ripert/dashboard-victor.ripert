@@ -11,8 +11,11 @@ Dashboard is a EPITECH project, that display some informations get by micro-serv
 | Gateway | `gateway/` | Go + Gin | 8080 |
 | Weather service | `service/weather/` | Node.js + Express | 4000 (internal) |
 | Database | — | PostgreSQL 16 | 5432 |
+| Mail server (development) | — | Mailpit | 8025 (web UI), 1025 (SMTP) |
 
 The front-end talks only to the gateway. The gateway handles authentication (users are stored in PostgreSQL) and forwards widget requests to the services.
+
+In development, the emails the gateway sends go to Mailpit, a fake mail server: it catches every email and shows it in a web page instead of delivering it.
 
 ## Getting started
 
@@ -31,9 +34,10 @@ cp .env.example .env
 Then edit `.env`:
 
 - `JWT_SECRET` (required): the key used to sign login tokens. Generate one with `openssl rand -hex 32`.
-- `GATEWAY_PORT` / `DB_PORT` (optional): change them if 8080 or 5432 are already used on your machine.
+- `GATEWAY_PORT` / `DB_PORT` / `MAILPIT_UI_PORT` / `MAILPIT_SMTP_PORT` (optional): change them if 8080, 5432, 8025 or 1025 are already used on your machine.
+- `SMTP_HOST` / `SMTP_PORT` (optional): the mail server the gateway sends emails to. Leave them unset to use the Mailpit container.
 
-### 2. Start the back-end (database, weather service, gateway)
+### 2. Start the back-end (database, weather service, mail server, gateway)
 
 From the project root:
 
@@ -41,7 +45,10 @@ From the project root:
 docker compose up --build
 ```
 
-This starts the containers in order: PostgreSQL first, then the weather service, then the gateway. The gateway is then available at `http://localhost:8080` (or `GATEWAY_PORT`).
+This starts PostgreSQL, the weather service and Mailpit, then the gateway once the database and Mailpit are ready.
+
+- The gateway is available at `http://localhost:8080` (or `GATEWAY_PORT`).
+- The emails sent by the gateway can be read at `http://localhost:8025` (or `MAILPIT_UI_PORT`).
 
 Useful commands:
 
@@ -78,10 +85,10 @@ npm install
 npm start   # listens on port 4000
 ```
 
-**Gateway** (needs the database, which can still run in Docker):
+**Gateway** (needs the database and the mail server, which can still run in Docker):
 
 ```bash
-docker compose up -d db
+docker compose up -d db mailpit
 cd gateway
 JWT_SECRET=dev-secret go run .
 ```
