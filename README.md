@@ -109,7 +109,7 @@ The gateway reads these environment variables:
 
 ```bash
 cd gateway
-go test ./mailer/
+go test ./auth/ ./mailer/
 ```
 
 ## Gateway routes
@@ -117,14 +117,27 @@ go test ./mailer/
 | Route | Login required | Description |
 |---|---|---|
 | `GET /about.json` | No | Lists the services and their widgets |
-| `POST /api/auth/register` | No | Creates an account (`{"email", "password"}`) and returns a token |
-| `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`) |
+| `POST /api/auth/register` | No | Creates an unverified account (`{"email", "password"}`) and emails it a 6-digit code. Returns `201 {"email", "verification_required": true}`, no token. `409` if the email already has an account. |
+| `POST /api/auth/verify` | No | Checks the code (`{"email", "code"}`), verifies the account and returns a token. `400` for a wrong or expired code. |
+| `POST /api/auth/resend-code` | No | Emails a new code (`{"email"}`). `204`, or `429` with `retry_after` (seconds) if asked again within 60 seconds. |
+| `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`). `403 "Email not verified"` if the account isn't verified yet. |
 | `GET /api/auth/me` | Yes | Returns the logged-in user |
 | `GET /api/weather/widgets/current_weather?city=Paris` | Yes | Current weather for a city |
 
 For routes that require login, send the token in the header: `Authorization: Bearer <token>`.
 
+### Email verification rules
+
+- A new account must be verified with the code emailed at registration before it can log in.
+- A code is valid for 10 minutes and allows 5 guesses. Asking for a new code replaces the previous one.
+- An account that can't be verified anymore is deleted, which frees its email for a new registration:
+  - its code expired, or it received 5 wrong codes;
+  - the verification email could not be sent;
+  - it was created more than 30 minutes ago, however many new codes were requested.
+- Accounts created before email verification existed are considered verified.
+
 ## Current status
 
-- **Connected:** register, login and logout, and the weather widget (real data through the gateway).
+- **Connected:** login and logout, and the weather widget (real data through the gateway).
+- **Registration from the front-end is broken until the verification page is added:** the gateway now answers registration with "check your email" instead of a token, and the front-end doesn't handle that yet.
 - **Still demo data:** the trading widget. Its routes (`/api/trading/...`) don't exist in the gateway yet, so placing an order fails.

@@ -37,8 +37,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Database unavailable: %v", err)
 	}
-	authService := auth.New(store, jwtSecret)
-
 	emailSender, err := mailer.NewSMTPMailer(mailer.SMTPConfig{
 		Host:     getenv("SMTP_HOST", "localhost"),
 		Port:     getenv("SMTP_PORT", "1025"),
@@ -49,8 +47,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO: pass emailSender to the auth service for email verification
 	log.Printf("Emails are sent through SMTP server %s", emailSender.Addr())
+
+	authService := auth.New(store, emailSender, jwtSecret)
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
