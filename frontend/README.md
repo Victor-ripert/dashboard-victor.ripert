@@ -36,13 +36,19 @@ src/
 │   ├── useAuth.js       # hook to read the auth state from any component
 │   ├── authContext.js   # the React context shared by the two files above
 │   ├── tokenStorage.js  # where the token is kept (localStorage)
+│   ├── verifyPath.js    # builds the URL of the verify page: /verify?email=...
 │   ├── RequireAuth.jsx  # route guard: logged-in users only
 │   └── GuestOnly.jsx    # route guard: logged-out visitors only
-├── components/auth/AuthForm.jsx  # email + password form used by both auth pages
-└── pages/               # LoginPage, RegisterPage, DashboardPage
+├── components/auth/
+│   ├── AuthCard.jsx     # centered card layout shared by the auth pages
+│   └── AuthForm.jsx     # email + password form used by the login and register pages
+├── hooks/useCooldown.js # countdown in seconds (used by "Resend code")
+└── pages/               # LoginPage, RegisterPage, VerifyPage, DashboardPage
 ```
 
-Routes: `/login`, `/register`, and `/` (the dashboard, login required).
+Routes: `/login`, `/register`, `/verify?email=...` (enter the code emailed after registering), and `/` (the dashboard, login required).
+
+Registering doesn't log in: the user lands on `/verify` and enters the 6-digit code from the email. Logging in with an email that was never verified also leads there. In development, read the emails in Mailpit at `http://localhost:8025`.
 
 ## Gateway routes
 

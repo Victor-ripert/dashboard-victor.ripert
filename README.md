@@ -138,6 +138,5 @@ For routes that require login, send the token in the header: `Authorization: Bea
 
 ## Current status
 
-- **Connected:** login and logout, and the weather widget (real data through the gateway).
-- **Registration from the front-end is broken until the verification page is added:** the gateway now answers registration with "check your email" instead of a token, and the front-end doesn't handle that yet.
+- **Connected:** registration with email verification, login and logout, and the weather widget (real data through the gateway).
 - **Still demo data:** the trading widget. Its routes (`/api/trading/...`) don't exist in the gateway yet, so placing an order fails.
