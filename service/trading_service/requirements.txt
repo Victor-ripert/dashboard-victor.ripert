@@ -1,0 +1,9 @@
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+alpaca-py
+sqlalchemy>=2.0
+psycopg[binary]
+pydantic-settings
+python-jose[cryptography]
+cryptography
+httpx
