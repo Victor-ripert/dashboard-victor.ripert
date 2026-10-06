@@ -6,13 +6,6 @@ export const assets = [
   { symbol: "BTC", name: "Bitcoin", price: 66384.12, change: 1.23 },
 ];
 
-export const weatherByCity = {
-  Paris: { temperature: 18, condition: "Partly cloudy", humidity: 62, wind: 11, icon: "partly" },
-  London: { temperature: 14, condition: "Light rain", humidity: 78, wind: 17, icon: "rain" },
-  Barcelona: { temperature: 24, condition: "Sunny", humidity: 48, wind: 9, icon: "sun" },
-  Tokyo: { temperature: 21, condition: "Cloudy", humidity: 70, wind: 13, icon: "cloud" },
-};
-
 export const commits = [
   { message: "Add trading widget routes", hash: "a1b2c3d", time: "2 hours ago" },
   { message: "Fix gateway proxy timeout", hash: "d4e5f6g", time: "Yesterday" },

@@ -32,7 +32,7 @@ func New(store Store, jwtSecret string) *Service {
 	return &Service{store: store, secret: []byte(jwtSecret)}
 }
 
-// Routes mounts /auth/register, /auth/login and /auth/me on the router.
+// Routes mounts /auth/register, /auth/login and /auth/me on the router or group.
 func (s *Service) Routes(r gin.IRouter) {
 	group := r.Group("/auth")
 	group.POST("/register", s.register)

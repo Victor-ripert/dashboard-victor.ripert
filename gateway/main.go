@@ -45,7 +45,9 @@ func main() {
 	corsConfig.AddAllowHeaders("Authorization")
 	r.Use(cors.New(corsConfig))
 
-	authService.Routes(r)
+	// Routes used by the front-end live under /api
+	api := r.Group("/api")
+	authService.Routes(api)
 
 	// Aggregated metadata for the front-end, built from each service's /about.json
 	r.GET("/about.json", func(c *gin.Context) {
@@ -71,8 +73,8 @@ func main() {
 		})
 	})
 
-	// GET /weather/widgets/current_weather?city=Paris -> weather service (logged-in users only)
-	r.GET("/weather/widgets/:widget", authService.RequireAuth(), func(c *gin.Context) {
+	// GET /api/weather/widgets/current_weather?city=Paris -> weather service (logged-in users only)
+	api.GET("/weather/widgets/:widget", authService.RequireAuth(), func(c *gin.Context) {
 		target := weatherURL + "/widgets/" + url.PathEscape(c.Param("widget")) + "?" + c.Request.URL.RawQuery
 		resp, err := client.Get(target)
 		if err != nil {
