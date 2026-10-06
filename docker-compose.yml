@@ -33,9 +33,12 @@ services:
       WEATHER_URL: http://weather:4000
       DATABASE_URL: postgres://dashboard:dashboard@db:5432/dashboard?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
-      # Mailpit by default; set SMTP_HOST / SMTP_PORT in .env to use a real provider
+      # Mailpit by default; set the SMTP_* variables in .env to use a real provider
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-Dashboard <noreply@dashboard.local>}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     depends_on:

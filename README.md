@@ -35,7 +35,7 @@ Then edit `.env`:
 
 - `JWT_SECRET` (required): the key used to sign login tokens. Generate one with `openssl rand -hex 32`.
 - `GATEWAY_PORT` / `DB_PORT` / `MAILPIT_UI_PORT` / `MAILPIT_SMTP_PORT` (optional): change them if 8080, 5432, 8025 or 1025 are already used on your machine.
-- `SMTP_HOST` / `SMTP_PORT` (optional): the mail server the gateway sends emails to. Leave them unset to use the Mailpit container.
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` / `SMTP_USERNAME` / `SMTP_PASSWORD` (optional): the mail server the gateway sends emails to, the sender address and the credentials. Leave them unset to use the Mailpit container.
 
 ### 2. Start the back-end (database, weather service, mail server, gateway)
 
@@ -101,6 +101,16 @@ The gateway reads these environment variables:
 | `JWT_SECRET` | — (required) | Key used to sign login tokens |
 | `DATABASE_URL` | `postgres://dashboard:dashboard@localhost:5432/dashboard?sslmode=disable` | PostgreSQL connection. Change the port if you changed `DB_PORT`. |
 | `WEATHER_URL` | `http://localhost:4000` | Address of the weather service |
+| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | SMTP server used to send emails (Mailpit's published port by default). Change the port if you changed `MAILPIT_SMTP_PORT`. |
+| `SMTP_FROM` | `Dashboard <noreply@dashboard.local>` | Sender of the emails |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | — (optional) | Credentials for a real provider. They are only sent over an encrypted connection (STARTTLS) or to `localhost`. |
+
+**Gateway tests** (no Docker needed):
+
+```bash
+cd gateway
+go test ./mailer/
+```
 
 ## Gateway routes
 

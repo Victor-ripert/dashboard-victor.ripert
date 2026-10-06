@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dashboard/gateway/auth"
+	"dashboard/gateway/mailer"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -37,6 +38,19 @@ func main() {
 		log.Fatalf("Database unavailable: %v", err)
 	}
 	authService := auth.New(store, jwtSecret)
+
+	emailSender, err := mailer.NewSMTPMailer(mailer.SMTPConfig{
+		Host:     getenv("SMTP_HOST", "localhost"),
+		Port:     getenv("SMTP_PORT", "1025"),
+		From:     getenv("SMTP_FROM", "Dashboard <noreply@dashboard.local>"),
+		Username: os.Getenv("SMTP_USERNAME"),
+		Password: os.Getenv("SMTP_PASSWORD"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO: pass emailSender to the auth service for email verification
+	log.Printf("Emails are sent through SMTP server %s", emailSender.Addr())
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
