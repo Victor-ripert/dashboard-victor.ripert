@@ -1,37 +1,47 @@
 services:
-  ib-gateway:
-    image: ghcr.io/gnzsnz/ib-gateway:latest
-    container_name: ib-gateway
-    restart: unless-stopped
-    environment:
-      - TWS_USERID=${TWS_USERID:-edemo}
-      - TWS_PASSWORD=${TWS_PASSWORD:-demouser}
-      - TRADING_MODE=${TRADING_MODE:-paper}
-      - READ_ONLY_API=no
-      - TWOFA_TIMEOUT_ACTION=restart
-    ports:
-      - "4002:4002"
-
-  trading-api:
+  trading-service:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: trading-api-service
-    restart: unless-stopped
-    depends_on:
-      - ib-gateway
+    container_name: trading-service
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8010
+    env_file:
+      - .env
     environment:
-      - IB_HOST=ib-gateway
-      - IB_PORT=4002
-      - IB_CLIENT_ID=1
-      - IB_TIMEOUT=10.0
-      - MOCK_MODE=${MOCK_MODE:-false}
-      - AUTO_FALLBACK_MOCK=${AUTO_FALLBACK_MOCK:-true}
-      - CORS_ORIGINS=*
+      DATABASE_URL: postgresql+psycopg://trading:${POSTGRES_PASSWORD}@postgres:5432/trading
+      ALPACA_CLIENT_ID: ${ALPACA_CLIENT_ID}
+      ALPACA_CLIENT_SECRET: ${ALPACA_CLIENT_SECRET}
+      ALPACA_REDIRECT_URI: ${ALPACA_REDIRECT_URI}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET}
+      INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET}
+      INTERNAL_JWT_ISSUER: ${INTERNAL_JWT_ISSUER}
+      INTERNAL_JWT_AUDIENCE: ${INTERNAL_JWT_AUDIENCE}
     ports:
-      - "8000:8000"
+      - "8010:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: trading-service-postgres
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - trading_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  trading_postgres_data:
