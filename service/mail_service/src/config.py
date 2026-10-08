@@ -12,10 +12,7 @@ class Settings(BaseSettings):
     jwt_issuer: str
     jwt_audience: str
     cors_origins: str = "http://localhost:3000"
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict(env_file=".env",extra="ignore")
 
     @property
     def allowed_origins(self) -> list[str]:
@@ -23,7 +20,6 @@ class Settings(BaseSettings):
             origin.strip()
             for origin in self.cors_origins.split(",")
         ]
-
 
 @lru_cache
 def get_settings() -> Settings:
