@@ -5,6 +5,7 @@ import RequireAuth from "./auth/RequireAuth";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import VerifyPage from "./pages/VerifyPage";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
           <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+          <Route path="/verify" element={<GuestOnly><VerifyPage /></GuestOnly>} />
           <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
