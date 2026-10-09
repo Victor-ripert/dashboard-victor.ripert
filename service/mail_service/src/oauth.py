@@ -6,7 +6,6 @@ GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly"
 ]
 
-
 def hash_oauth_state(state: str) -> str:
     return hashlib.sha256(state.encode("utf-8")).hexdigest()
 
