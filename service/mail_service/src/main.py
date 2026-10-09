@@ -18,14 +18,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Mail service", lifespan=lifespan)
 
-app.add_middleware(
-CORSMiddleware,
+app.add_middleware(CORSMiddleware,
 allow_origins=settings.allowed_origins,
 allow_credentials=True,
 allow_methods=["*"],
 allow_headers=["*"]
 )
-
 
 @app.post("/gmail/connect")
 def connect_gmail(user_id: str = Depends(current_user_id), db: Session = Depends(get_db)):
@@ -36,7 +34,6 @@ def connect_gmail(user_id: str = Depends(current_user_id), db: Session = Depends
     flow = google_flow(state)
     authorization_url, _ = flow.authorization_url(access_type="offline",prompt="consent")
     return {"authorization_url": authorization_url}
-
 
 @app.get("/oauth/callback")
 def google_callback(code: str,state: str,db: Session = Depends(get_db)):
@@ -73,7 +70,6 @@ def google_callback(code: str,state: str,db: Session = Depends(get_db)):
     db.commit()
     return {"connected": True,"email": connection.gmail_email}
 
-
 @app.get("/gmail/status")
 def gmail_status(user_id: str = Depends(current_user_id),db: Session = Depends(get_db)):
     connection = db.get(GmailConnection,user_id)
@@ -81,7 +77,6 @@ def gmail_status(user_id: str = Depends(current_user_id),db: Session = Depends(g
     if connection is None:
         return {"connected": False}
     return {"connected": True, "email": connection.gmail_email}
-
 
 @app.delete("/gmail/connection")
 def disconnect_gmail(user_id: str = Depends(current_user_id), db: Session = Depends(get_db)):
@@ -92,7 +87,6 @@ def disconnect_gmail(user_id: str = Depends(current_user_id), db: Session = Depe
         db.commit()
 
     return {"disconnected": True}
-
 
 @app.get("/emails")
 def list_emails(
