@@ -1,13 +1,17 @@
 // Package auth provides email/password authentication for a gin router:
-// register and login routes that return a JWT, and a middleware that checks it.
+// registration with an emailed verification code, login routes that return
+// a JWT, and a middleware that checks it.
 package auth
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"dashboard/gateway/mailer"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -25,17 +29,21 @@ const (
 
 type Service struct {
 	store  Store
+	mailer mailer.Mailer
 	secret []byte
+	now    func() time.Time // replaced in tests to control time
 }
 
-func New(store Store, jwtSecret string) *Service {
-	return &Service{store: store, secret: []byte(jwtSecret)}
+func New(store Store, sender mailer.Mailer, jwtSecret string) *Service {
+	return &Service{store: store, mailer: sender, secret: []byte(jwtSecret), now: time.Now}
 }
 
-// Routes mounts /auth/register, /auth/login and /auth/me on the router or group.
+// Routes mounts the /auth/... routes on the router or group.
 func (s *Service) Routes(r gin.IRouter) {
 	group := r.Group("/auth")
 	group.POST("/register", s.register)
+	group.POST("/verify", s.verify)
+	group.POST("/resend-code", s.resendCode)
 	group.POST("/login", s.login)
 	group.GET("/me", s.RequireAuth(), s.me)
 }
@@ -51,9 +59,16 @@ func bindCredentials(c *gin.Context) (credentials, bool) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid email and a password are required"})
 		return creds, false
 	}
-	creds.Email = strings.ToLower(strings.TrimSpace(creds.Email))
+	creds.Email = normalizeEmail(creds.Email)
 	return creds, true
 }
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+// register creates an unverified account and emails it a verification code.
+// The user is logged in by /auth/verify, not here.
 
 func (s *Service) register(c *gin.Context) {
 	creds, ok := bindCredentials(c)
@@ -71,7 +86,11 @@ func (s *Service) register(c *gin.Context) {
 		return
 	}
 
-	user, err := s.store.CreateUser(c.Request.Context(), creds.Email, string(hash))
+	ctx := c.Request.Context()
+	// Frees the email if an earlier registration was abandoned
+	s.deleteAbandonedUsers(ctx)
+
+	user, err := s.store.CreateUser(ctx, creds.Email, string(hash))
 	if errors.Is(err, ErrEmailTaken) {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
 		return
@@ -81,7 +100,17 @@ func (s *Service) register(c *gin.Context) {
 		return
 	}
 
-	s.respondWithToken(c, http.StatusCreated, user)
+	if err := s.sendVerificationCode(ctx, user); err != nil {
+		log.Printf("auth: sending the verification code to user %d: %v", user.ID, err)
+		// The registration failed: free the email so the user can try again
+		if err := s.store.DeleteUser(ctx, user.ID); err != nil {
+			log.Printf("auth: deleting user %d after a failed registration: %v", user.ID, err)
+		}
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Could not send the verification email. Please try again."})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"email": user.Email, "verification_required": true})
 }
 
 func (s *Service) login(c *gin.Context) {
@@ -90,7 +119,11 @@ func (s *Service) login(c *gin.Context) {
 		return
 	}
 
-	user, err := s.store.FindUserByEmail(c.Request.Context(), creds.Email)
+	ctx := c.Request.Context()
+	// An abandoned registration must answer like an unknown email, not "not verified"
+	s.deleteAbandonedUsers(ctx)
+
+	user, err := s.store.FindUserByEmail(ctx, creds.Email)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not log in"})
 		return
@@ -98,6 +131,11 @@ func (s *Service) login(c *gin.Context) {
 	// Same answer for an unknown email and a wrong password
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(creds.Password)) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		return
+	}
+	// Checked after the password, so it doesn't reveal which emails have an account
+	if !user.EmailVerified {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Email not verified"})
 		return
 	}
 

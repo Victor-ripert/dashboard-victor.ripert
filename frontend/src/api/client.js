@@ -1,10 +1,12 @@
 // Shared HTTP client: every call to the gateway goes through request().
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  // data: the gateway's JSON response, for extra fields such as retry_after
+  constructor(status, message, data = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -39,7 +41,7 @@ export async function request(path, { method = "GET", body, auth = true } = {}) 
   if (!response.ok) {
     // The token was refused (expired or invalid): let the auth module log out
     if (response.status === 401 && token) config.onUnauthorized();
-    throw new ApiError(response.status, data?.error || `Request failed with status ${response.status}`);
+    throw new ApiError(response.status, data?.error || `Request failed with status ${response.status}`, data);
   }
   return data;
 }

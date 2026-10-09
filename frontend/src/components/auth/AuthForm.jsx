@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import Brand from "../ui/Brand";
+import AuthCard from "./AuthCard";
 
 // Email + password form shared by the login and register pages
 export default function AuthForm({ title, submitLabel, passwordAutoComplete, passwordHint, minPasswordLength, onSubmit, footer }) {
@@ -22,36 +22,33 @@ export default function AuthForm({ title, submitLabel, passwordAutoComplete, pas
   }
 
   return (
-    <main className="grid min-h-screen place-items-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex justify-center"><Brand /></div>
-        <form onSubmit={submit} className="widget gap-4 p-6">
-          <h1 className="light-text text-lg font-bold">{title}</h1>
+    <AuthCard>
+      <form onSubmit={submit} className="widget gap-4 p-6">
+        <h1 className="light-text text-lg font-bold">{title}</h1>
 
-          <label className="block">
-            <span className="label">Email</span>
-            <input className="field mt-1 h-10 text-sm" type="email" autoComplete="email" required
-              value={email} onChange={(event) => setEmail(event.target.value)} />
-          </label>
+        <label className="block">
+          <span className="label">Email</span>
+          <input className="field mt-1 h-10 text-sm" type="email" autoComplete="email" required
+            value={email} onChange={(event) => setEmail(event.target.value)} />
+        </label>
 
-          <label className="block">
-            <span className="label">Password</span>
-            <input className="field mt-1 h-10 text-sm" type="password" autoComplete={passwordAutoComplete} required
-              minLength={minPasswordLength} maxLength={72}
-              value={password} onChange={(event) => setPassword(event.target.value)} />
-            {passwordHint && <span className="mt-1 block text-[11px] text-slate-500">{passwordHint}</span>}
-          </label>
+        <label className="block">
+          <span className="label">Password</span>
+          <input className="field mt-1 h-10 text-sm" type="password" autoComplete={passwordAutoComplete} required
+            minLength={minPasswordLength} maxLength={72}
+            value={password} onChange={(event) => setPassword(event.target.value)} />
+          {passwordHint && <span className="mt-1 block text-[11px] text-slate-500">{passwordHint}</span>}
+        </label>
 
-          {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
+        {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
 
-          <button disabled={loading} className="flex h-10 items-center justify-center gap-2 rounded-md bg-sky-400 text-sm font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-60">
-            {loading && <Loader2 size={16} className="animate-spin" />}
-            {submitLabel}
-          </button>
+        <button disabled={loading} className="flex h-10 items-center justify-center gap-2 rounded-md bg-sky-400 text-sm font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-60">
+          {loading && <Loader2 size={16} className="animate-spin" />}
+          {submitLabel}
+        </button>
 
-          <p className="text-center text-xs text-slate-400">{footer}</p>
-        </form>
-      </div>
-    </main>
+        <p className="text-center text-xs text-slate-400">{footer}</p>
+      </form>
+    </AuthCard>
   );
 }

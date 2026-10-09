@@ -11,8 +11,11 @@ Dashboard is a EPITECH project, that display some informations get by micro-serv
 | Gateway | `gateway/` | Go + Gin | 8080 |
 | Weather service | `service/weather/` | Node.js + Express | 4000 (internal) |
 | Database | — | PostgreSQL 16 | 5432 |
+| Mail server (development) | — | Mailpit | 8025 (web UI), 1025 (SMTP) |
 
 The front-end talks only to the gateway. The gateway handles authentication (users are stored in PostgreSQL) and forwards widget requests to the services.
+
+In development, the emails the gateway sends go to Mailpit, a fake mail server: it catches every email and shows it in a web page instead of delivering it.
 
 ## Getting started
 
@@ -31,9 +34,10 @@ cp .env.example .env
 Then edit `.env`:
 
 - `JWT_SECRET` (required): the key used to sign login tokens. Generate one with `openssl rand -hex 32`.
-- `GATEWAY_PORT` / `DB_PORT` (optional): change them if 8080 or 5432 are already used on your machine.
+- `GATEWAY_PORT` / `DB_PORT` / `MAILPIT_UI_PORT` / `MAILPIT_SMTP_PORT` (optional): change them if 8080, 5432, 8025 or 1025 are already used on your machine.
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` / `SMTP_USERNAME` / `SMTP_PASSWORD` (optional): the mail server the gateway sends emails to, the sender address and the credentials. Leave them unset to use the Mailpit container.
 
-### 2. Start the back-end (database, weather service, gateway)
+### 2. Start the back-end (database, weather service, mail server, gateway)
 
 From the project root:
 
@@ -41,7 +45,10 @@ From the project root:
 docker compose up --build
 ```
 
-This starts the containers in order: PostgreSQL first, then the weather service, then the gateway. The gateway is then available at `http://localhost:8080` (or `GATEWAY_PORT`).
+This starts PostgreSQL, the weather service and Mailpit, then the gateway once the database and Mailpit are ready.
+
+- The gateway is available at `http://localhost:8080` (or `GATEWAY_PORT`).
+- The emails sent by the gateway can be read at `http://localhost:8025` (or `MAILPIT_UI_PORT`).
 
 Useful commands:
 
@@ -78,10 +85,10 @@ npm install
 npm start   # listens on port 4000
 ```
 
-**Gateway** (needs the database, which can still run in Docker):
+**Gateway** (needs the database and the mail server, which can still run in Docker):
 
 ```bash
-docker compose up -d db
+docker compose up -d db mailpit
 cd gateway
 JWT_SECRET=dev-secret go run .
 ```
@@ -94,20 +101,42 @@ The gateway reads these environment variables:
 | `JWT_SECRET` | — (required) | Key used to sign login tokens |
 | `DATABASE_URL` | `postgres://dashboard:dashboard@localhost:5432/dashboard?sslmode=disable` | PostgreSQL connection. Change the port if you changed `DB_PORT`. |
 | `WEATHER_URL` | `http://localhost:4000` | Address of the weather service |
+| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | SMTP server used to send emails (Mailpit's published port by default). Change the port if you changed `MAILPIT_SMTP_PORT`. |
+| `SMTP_FROM` | `Dashboard <noreply@dashboard.local>` | Sender of the emails |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | — (optional) | Credentials for a real provider. They are only sent over an encrypted connection (STARTTLS) or to `localhost`. |
+
+**Gateway tests** (no Docker needed):
+
+```bash
+cd gateway
+go test ./auth/ ./mailer/
+```
 
 ## Gateway routes
 
 | Route | Login required | Description |
 |---|---|---|
 | `GET /about.json` | No | Lists the services and their widgets |
-| `POST /api/auth/register` | No | Creates an account (`{"email", "password"}`) and returns a token |
-| `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`) |
+| `POST /api/auth/register` | No | Creates an unverified account (`{"email", "password"}`) and emails it a 6-digit code. Returns `201 {"email", "verification_required": true}`, no token. `409` if the email already has an account. |
+| `POST /api/auth/verify` | No | Checks the code (`{"email", "code"}`), verifies the account and returns a token. `400` for a wrong or expired code. |
+| `POST /api/auth/resend-code` | No | Emails a new code (`{"email"}`). `204`, or `429` with `retry_after` (seconds) if asked again within 60 seconds. |
+| `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`). `403 "Email not verified"` if the account isn't verified yet. |
 | `GET /api/auth/me` | Yes | Returns the logged-in user |
 | `GET /api/weather/widgets/current_weather?city=Paris` | Yes | Current weather for a city |
 
 For routes that require login, send the token in the header: `Authorization: Bearer <token>`.
 
+### Email verification rules
+
+- A new account must be verified with the code emailed at registration before it can log in.
+- A code is valid for 10 minutes and allows 5 guesses. Asking for a new code replaces the previous one.
+- An account that can't be verified anymore is deleted, which frees its email for a new registration:
+  - its code expired, or it received 5 wrong codes;
+  - the verification email could not be sent;
+  - it was created more than 30 minutes ago, however many new codes were requested.
+- Accounts created before email verification existed are considered verified.
+
 ## Current status
 
-- **Connected:** register, login and logout, and the weather widget (real data through the gateway).
+- **Connected:** registration with email verification, login and logout, and the weather widget (real data through the gateway).
 - **Still demo data:** the trading widget. Its routes (`/api/trading/...`) don't exist in the gateway yet, so placing an order fails.

@@ -34,14 +34,17 @@ export default function AuthProvider({ children }) {
     (email, password) => authApi.login(email, password).then(startSession),
     [startSession],
   );
-  const register = useCallback(
-    (email, password) => authApi.register(email, password).then(startSession),
+  // Doesn't log in: the account must first be verified with the emailed code
+  const register = useCallback((email, password) => authApi.register(email, password), []);
+  const verify = useCallback(
+    (email, code) => authApi.verify(email, code).then(startSession),
     [startSession],
   );
+  const resendCode = useCallback((email) => authApi.resendCode(email), []);
 
   const value = useMemo(
-    () => ({ user, checking, login, register, logout }),
-    [user, checking, login, register, logout],
+    () => ({ user, checking, login, register, verify, resendCode, logout }),
+    [user, checking, login, register, verify, resendCode, logout],
   );
   return <AuthContext value={value}>{children}</AuthContext>;
 }
