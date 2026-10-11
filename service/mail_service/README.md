@@ -1,36 +1,36 @@
 # Mail Service
 
-Microservice FastAPI permettant à chaque utilisateur de connecter son compte Gmail avec OAuth 2.0 et de récupérer ses emails. Les credentials Google sont associés à l'utilisateur de l'application et chiffrés avant leur stockage en base.
+A FastAPI microservice that allows each user to connect their Gmail account with OAuth 2.0 and retrieve their emails. Google credentials are linked to the application user and encrypted before being stored in the database.
 
-## Lancer le service
+## Run the service
 
-Créer un fichier `.env` à la racine :
+Create a `.env` file at the project root:
 
 ```env
 DATABASE_URL=postgresql+psycopg://mail_user:mail_password@db:5432/mail_db
 
-GMAIL_CLIENT_ID=ton-client-id
-GMAIL_CLIENT_SECRET=ton-client-secret
+GMAIL_CLIENT_ID=your-client-id
+GMAIL_CLIENT_SECRET=your-client-secret
 GMAIL_REDIRECT_URI=http://localhost:8000/oauth/google/callback
 
-TOKEN_ENCRYPTION_KEY=ta-cle-fernet
+TOKEN_ENCRYPTION_KEY=your-fernet-key
 
-JWT_SECRET=ton-secret-jwt
+JWT_SECRET=your-jwt-secret
 JWT_ISSUER=auth-service
 JWT_AUDIENCE=mail-service
 
 CORS_ORIGINS=http://localhost:3000
 ```
 
-Lancer l'API et PostgreSQL :
+Start the API and PostgreSQL:
 
 ```bash
 docker compose up --build
 ```
 
-L'API est disponible sur `http://localhost:8000` et la documentation sur `http://localhost:8000/docs`.
+The API is available at `http://localhost:8000` and the documentation at `http://localhost:8000/docs`.
 
-Pour arrêter les conteneurs :
+Stop the containers:
 
 ```bash
 docker compose down
@@ -38,25 +38,25 @@ docker compose down
 
 ## Routes
 
-Toutes les routes, sauf le callback Google, utilisent un JWT dans le header :
+All routes except the Google callback require a JWT in the request header:
 
 ```http
 Authorization: Bearer <token>
 ```
 
-| Méthode | Route | Description |
+| Method | Route | Description |
 |---|---|---|
-| `POST` | `/gmail/connect` | Retourne l'URL permettant de connecter Gmail |
-| `GET` | `/oauth/google/callback` | Reçoit le retour OAuth de Google |
-| `GET` | `/gmail/status` | Indique si Gmail est connecté |
-| `DELETE` | `/gmail/connection` | Supprime la connexion Gmail |
-| `GET` | `/emails` | Retourne les emails de l'utilisateur connecté |
+| `POST` | `/gmail/connect` | Returns the URL used to connect a Gmail account |
+| `GET` | `/oauth/google/callback` | Handles the Google OAuth callback |
+| `GET` | `/gmail/status` | Checks whether Gmail is connected |
+| `DELETE` | `/gmail/connection` | Deletes the Gmail connection |
+| `GET` | `/emails` | Returns the authenticated user's emails |
 
-## Base de données
+## Database
 
-PostgreSQL contient deux tables :
+PostgreSQL contains two tables:
 
-- `gmail_connections` : adresse Gmail et credentials Google chiffrés pour chaque utilisateur ;
-- `oauth_states` : états OAuth temporaires utilisés pendant la connexion Google.
+- `gmail_connections`: stores each user's Gmail address and encrypted Google credentials;
+- `oauth_states`: stores temporary OAuth states used during the Google connection flow.
 
-Les données PostgreSQL sont conservées dans le volume Docker `postgres_data`. La commande `docker compose down -v` supprime ce volume et toutes ses données.
+PostgreSQL data is stored in the `postgres_data` Docker volume. Running `docker compose down -v` deletes this volume and all its data.
