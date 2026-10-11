@@ -35,6 +35,7 @@ const WEATHER_CODES = {
 async function geocode(city) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`;
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`Geocoding provider returned HTTP ${res.status}`);
   const data = await res.json();
   if (!data.results?.length) throw new Error(`City not found: ${city}`);
   const { latitude, longitude, name, country } = data.results[0];
@@ -49,7 +50,10 @@ app.get("/widgets/current_weather", async (req, res) => {
   try {
     const location = await geocode(city);
     const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,precipitation,weather_code`;
-    const forecast = await (await fetch(forecastUrl)).json();
+    const forecastResponse = await fetch(forecastUrl);
+    if (!forecastResponse.ok) throw new Error(`Weather provider returned HTTP ${forecastResponse.status}`);
+    const forecast = await forecastResponse.json();
+    if (!forecast.current) throw new Error("Weather provider returned no current conditions");
 
     res.json({
       city: `${location.name}, ${location.country}`,

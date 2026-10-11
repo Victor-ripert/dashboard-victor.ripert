@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: GitHub Service
+  version: 1.0.0
+  description: GitHub repository activity and OAuth connection service.
+servers:
+  - url: http://localhost:4000
+paths:
+  /about.json:
+    get:
+      summary: Service and widget metadata
+      responses:
+        '200':
+          description: GitHub service metadata
+  /health:
+    get:
+      summary: Service health
+      responses:
+        '200':
+          description: Healthy
+  /widgets/activity:
+    get:
+      summary: Recent repository commits and activity counts
+      parameters:
+        - name: repo
+          in: query
+          required: true
+          schema: { type: string }
+          example: octocat/Hello-World
+      responses:
+        '200': { description: Repository activity }
+        '400': { description: Invalid repository }
+        '401': { description: Missing or invalid Dashboard JWT }
+        '404': { description: Repository not found }
+        '429': { description: GitHub rate limit exceeded }
+  /oauth/connect:
+    get:
+      summary: Start GitHub OAuth
+      responses:
+        '200': { description: Authorization URL }
+  /oauth/callback:
+    get:
+      summary: Complete GitHub OAuth
+      responses:
+        '302': { description: Redirect to the frontend }
+  /connection:
+    delete:
+      summary: Disconnect GitHub
+      responses:
+        '204': { description: Disconnected }

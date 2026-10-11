@@ -10,10 +10,11 @@ Dashboard is a EPITECH project, that display some informations get by micro-serv
 | Front-end | `frontend/` | React + Vite + Tailwind | 5173 |
 | Gateway | `gateway/` | Go + Gin | 8080 |
 | Weather service | `service/weather/` | Node.js + Express | 4000 (internal) |
+| GitHub service | `service/github/` | Go + Gin | 4000 (internal) |
 | Database | — | PostgreSQL 16 | 5432 |
 | Mail server (development) | — | Mailpit | 8025 (web UI), 1025 (SMTP) |
 
-The front-end talks only to the gateway. The gateway handles authentication (users are stored in PostgreSQL) and forwards widget requests to the services.
+The front-end talks only to the gateway. The gateway handles Dashboard authentication (users are stored in PostgreSQL) and forwards widget requests to the independent services. GitHub runs as its own internal service and owns its GitHub API, OAuth, cache, and encrypted connection storage.
 
 In development, the emails the gateway sends go to Mailpit, a fake mail server: it catches every email and shows it in a web page instead of delivering it.
 
@@ -36,6 +37,7 @@ Then edit `.env`:
 - `JWT_SECRET` (required): the key used to sign login tokens. Generate one with `openssl rand -hex 32`.
 - `GATEWAY_PORT` / `DB_PORT` / `MAILPIT_UI_PORT` / `MAILPIT_SMTP_PORT` (optional): change them if 8080, 5432, 8025 or 1025 are already used on your machine.
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` / `SMTP_USERNAME` / `SMTP_PASSWORD` (optional): the mail server the gateway sends emails to, the sender address and the credentials. Leave them unset to use the Mailpit container.
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URL`, `GITHUB_FRONTEND_URL`, and `GITHUB_TOKEN_ENCRYPTION_KEY` (optional): configure the GitHub service and enable private repository OAuth. The encryption key must be a 32-byte key encoded as 64 hexadecimal characters.
 
 ### 2. Start the back-end (database, weather service, mail server, gateway)
 
@@ -58,6 +60,8 @@ docker compose logs -f gateway # follow the logs of one container
 docker compose down            # stop everything (data is kept)
 docker compose down -v         # stop everything and delete the database
 ```
+
+The GitHub API runs in its own internal container at `github:4000`. It is not published directly to the host; browser requests continue to go through the gateway. Its OAuth state and encrypted GitHub connections use the `github` schema in the shared PostgreSQL server.
 
 ### 3. Start the front-end
 
@@ -104,12 +108,17 @@ The gateway reads these environment variables:
 | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | SMTP server used to send emails (Mailpit's published port by default). Change the port if you changed `MAILPIT_SMTP_PORT`. |
 | `SMTP_FROM` | `Dashboard <noreply@dashboard.local>` | Sender of the emails |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | — (optional) | Credentials for a real provider. They are only sent over an encrypted connection (STARTTLS) or to `localhost`. |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — (optional) | GitHub OAuth application credentials. |
+| `GITHUB_REDIRECT_URL` | — (optional) | OAuth callback URL, for example `http://localhost:8080/api/github/callback`. |
+| `GITHUB_FRONTEND_URL` | `http://localhost:5173/` | Frontend URL used after OAuth callback. |
+| `GITHUB_TOKEN_ENCRYPTION_KEY` | — (optional) | 32-byte hex key used to encrypt GitHub access tokens at rest. |
+| `GITHUB_URL` | `http://github:4000` | Internal GitHub service URL used by the gateway. |
 
 **Gateway tests** (no Docker needed):
 
 ```bash
 cd gateway
-go test ./auth/ ./mailer/
+go test ./auth/ ./mailer/ ./internal/github/ .
 ```
 
 ## Gateway routes
@@ -123,8 +132,87 @@ go test ./auth/ ./mailer/
 | `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`). `403 "Email not verified"` if the account isn't verified yet. |
 | `GET /api/auth/me` | Yes | Returns the logged-in user |
 | `GET /api/weather/widgets/current_weather?city=Paris` | Yes | Current weather for a city |
+| `GET /api/github/activity?repo=owner/repository` | Yes | Recent commits and today/current-week statistics for a public GitHub repository |
+| `GET /api/github/connect` | Yes | Returns the GitHub OAuth authorization URL |
+| `GET /api/github/callback` | No (validated by one-time OAuth state) | Completes GitHub OAuth and links the account to the Dashboard user |
+| `DELETE /api/github/connection` | Yes | Disconnects GitHub and deletes the stored token |
 
 For routes that require login, send the token in the header: `Authorization: Bearer <token>`.
+
+### GitHub activity service
+
+The GitHub widget reads activity from a public repository. The repository must use the following format:
+
+```text
+owner/repository
+```
+
+The endpoint requires an authenticated Dashboard user:
+
+```text
+GET /api/github/activity?repo=owner/repository
+```
+
+Example request:
+
+```bash
+curl \
+  -H "Authorization: Bearer YOUR_DASHBOARD_TOKEN" \
+  "http://localhost:8080/api/github/activity?repo=owner/repository"
+```
+
+Example response:
+
+```json
+{
+  "repository": "owner/repository",
+  "commits": [
+    {
+      "sha": "abc123",
+      "message": "Fix authentication redirect",
+      "author": "octocat",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1",
+      "date": "2026-10-08T09:30:00Z",
+      "url": "https://github.com/owner/repository/commit/abc123"
+    }
+  ],
+  "counts": {
+    "today": 4,
+    "this_week": 18
+  }
+}
+```
+
+`today` counts commits from midnight UTC until the current time. `this_week` counts commits from Monday at `00:00 UTC` until the current time. The response includes up to 10 recent commits, while statistics can use up to 10 pages of GitHub results.
+
+Successful activity responses are cached per repository for 60 seconds. Concurrent requests for the same repository share one GitHub request. Failed requests are not cached.
+
+The endpoint returns these errors:
+
+| Status | Meaning |
+|---|---|
+| `400` | The repository is missing or does not use the `owner/repository` format |
+| `401` | The Dashboard authentication token is missing or invalid |
+| `404` | The GitHub repository does not exist or is not public |
+| `429` | GitHub rate limit exceeded; `retry_after` may contain the number of seconds to wait |
+| `502` | GitHub could not be reached or returned an unexpected response |
+
+Public repositories work without connecting GitHub. To access private repositories, configure the GitHub service variables, then use **Connect GitHub** in the GitHub widget. GitHub OAuth is linked to the existing Dashboard user; the access token is stored encrypted in the GitHub service's `github` PostgreSQL schema and is never returned to the frontend. Disconnecting GitHub deletes the stored connection. Expired or revoked tokens are removed automatically after GitHub returns `401`.
+
+To test the service locally:
+
+1. Start the backend with `docker compose up --build`.
+2. Create and verify a Dashboard account, then log in to obtain a Dashboard JWT.
+3. Replace `YOUR_DASHBOARD_TOKEN` in the example request with that JWT.
+4. Replace `owner/repository` with a public repository such as `octocat/Hello-World`.
+5. Check the response for recent commits and the `counts` object.
+
+The GitHub client and cache tests can be run without Docker:
+
+```bash
+cd gateway
+go test ./internal/github/ -race
+```
 
 ### Email verification rules
 
@@ -138,5 +226,6 @@ For routes that require login, send the token in the header: `Authorization: Bea
 
 ## Current status
 
-- **Connected:** registration with email verification, login and logout, and the weather widget (real data through the gateway).
+- **Connected:** registration with email verification, login and logout, the weather widget, and the GitHub activity widget for public repositories.
 - **Still demo data:** the trading widget. Its routes (`/api/trading/...`) don't exist in the gateway yet, so placing an order fails.
+- **Optional:** GitHub OAuth and private repository access require the GitHub OAuth variables to be configured.
