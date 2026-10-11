@@ -17,6 +17,12 @@ var ErrInvalidRepository = errors.New("repository must use the owner/repository 
 
 var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
+const (
+	githubPageSize    = 100
+	githubMaxPages    = 10
+	recentCommitLimit = 10
+)
+
 type Commit struct {
 	SHA       string    `json:"sha"`
 	Message   string    `json:"message"`
@@ -85,32 +91,25 @@ func (client *Client) Activity(ctx context.Context, repository string, now time.
 	}
 
 	parts := strings.Split(repository, "/")
-	weekStart := startOfWeek(now.UTC())
+	now = now.UTC()
+	weekStart := startOfWeek(now)
 	items, err := client.fetchCommits(ctx, parts[0], parts[1], weekStart)
 	if err != nil {
 		return Activity{}, err
 	}
 
-	counts := Counts{}
-	for _, commit := range items {
-		if !commit.Date.Before(weekStart) {
-			counts.ThisWeek++
-		}
-		if !commit.Date.Before(startOfDay(now.UTC())) {
-			counts.Today++
-		}
-	}
-	if len(items) > 10 {
-		items = items[:10]
+	counts := countCommits(items, now)
+	if len(items) > recentCommitLimit {
+		items = items[:recentCommitLimit]
 	}
 	return Activity{Repository: repository, Commits: items, Counts: counts}, nil
 }
 
 func (client *Client) fetchCommits(ctx context.Context, owner, repository string, since time.Time) ([]Commit, error) {
 	commits := make([]Commit, 0, 10)
-	for page := 1; page <= 10; page++ {
+	for page := 1; page <= githubMaxPages; page++ {
 		query := url.Values{}
-		query.Set("per_page", "100")
+		query.Set("per_page", strconv.Itoa(githubPageSize))
 		query.Set("page", strconv.Itoa(page))
 		query.Set("since", since.UTC().Format(time.RFC3339))
 		endpoint := fmt.Sprintf("%s/repos/%s/%s/commits?%s", client.baseURL, url.PathEscape(owner), url.PathEscape(repository), query.Encode())
@@ -138,11 +137,29 @@ func (client *Client) fetchCommits(ctx context.Context, owner, repository string
 		for _, item := range payload {
 			commits = append(commits, normalizeCommit(item))
 		}
-		if len(payload) < 100 {
+		if len(payload) < githubPageSize {
 			break
 		}
 	}
 	return commits, nil
+}
+
+func countCommits(commits []Commit, now time.Time) Counts {
+	now = now.UTC()
+	dayStart := startOfDay(now)
+	weekStart := startOfWeek(now)
+	counts := Counts{}
+	for _, commit := range commits {
+		date := commit.Date.UTC()
+		if date.Before(weekStart) || date.After(now) {
+			continue
+		}
+		counts.ThisWeek++
+		if !date.Before(dayStart) {
+			counts.Today++
+		}
+	}
+	return counts
 }
 
 func normalizeCommit(item apiCommit) Commit {
