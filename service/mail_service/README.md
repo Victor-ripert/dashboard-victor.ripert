@@ -51,12 +51,3 @@ Authorization: Bearer <token>
 | `GET` | `/gmail/status` | Checks whether Gmail is connected |
 | `DELETE` | `/gmail/connection` | Deletes the Gmail connection |
 | `GET` | `/emails` | Returns the authenticated user's emails |
-
-## Database
-
-PostgreSQL contains two tables:
-
-- `gmail_connections`: stores each user's Gmail address and encrypted Google credentials;
-- `oauth_states`: stores temporary OAuth states used during the Google connection flow.
-
-PostgreSQL data is stored in the `postgres_data` Docker volume. Running `docker compose down -v` deletes this volume and all its data.
