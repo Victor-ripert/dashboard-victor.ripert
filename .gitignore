@@ -28,6 +28,10 @@ __pycache__/
 .agent
 AGENT.md
 
+# mail_service
+client_secret*
+token.pickle
+
 ##############
 #   GO/GIN   #
 ##############
