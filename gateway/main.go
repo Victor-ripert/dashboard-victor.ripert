@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"dashboard/gateway/auth"
+	"dashboard/gateway/internal/github"
 	"dashboard/gateway/mailer"
 
 	"github.com/gin-contrib/cors"
@@ -50,6 +52,7 @@ func main() {
 	log.Printf("Emails are sent through SMTP server %s", emailSender.Addr())
 
 	authService := auth.New(store, emailSender, jwtSecret)
+	githubClient := github.NewClient()
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
@@ -97,6 +100,25 @@ func main() {
 		defer resp.Body.Close()
 
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+	})
+
+	api.GET("/github/activity", authService.RequireAuth(), func(c *gin.Context) {
+		repository := c.Query("repo")
+		commits, err := githubClient.RecentCommits(c.Request.Context(), repository)
+		if errors.Is(err, github.ErrInvalidRepository) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err != nil {
+			var apiErr *github.APIError
+			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "GitHub repository not found"})
+				return
+			}
+			c.JSON(http.StatusBadGateway, gin.H{"error": "GitHub service unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"repository": repository, "commits": commits})
 	})
 
 	r.Run(":" + getenv("PORT", "8080"))
