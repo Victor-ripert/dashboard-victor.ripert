@@ -109,7 +109,7 @@ The gateway reads these environment variables:
 
 ```bash
 cd gateway
-go test ./auth/ ./mailer/
+go test ./auth/ ./mailer/ ./internal/github/ .
 ```
 
 ## Gateway routes
@@ -123,8 +123,84 @@ go test ./auth/ ./mailer/
 | `POST /api/auth/login` | No | Returns a token (`{"email", "password"}`). `403 "Email not verified"` if the account isn't verified yet. |
 | `GET /api/auth/me` | Yes | Returns the logged-in user |
 | `GET /api/weather/widgets/current_weather?city=Paris` | Yes | Current weather for a city |
+| `GET /api/github/activity?repo=owner/repository` | Yes | Recent commits and today/current-week statistics for a public GitHub repository |
 
 For routes that require login, send the token in the header: `Authorization: Bearer <token>`.
+
+### GitHub activity service
+
+The GitHub widget reads activity from a public repository. The repository must use the following format:
+
+```text
+owner/repository
+```
+
+The endpoint requires an authenticated Dashboard user:
+
+```text
+GET /api/github/activity?repo=owner/repository
+```
+
+Example request:
+
+```bash
+curl \
+  -H "Authorization: Bearer YOUR_DASHBOARD_TOKEN" \
+  "http://localhost:8080/api/github/activity?repo=owner/repository"
+```
+
+Example response:
+
+```json
+{
+  "repository": "owner/repository",
+  "commits": [
+    {
+      "sha": "abc123",
+      "message": "Fix authentication redirect",
+      "author": "octocat",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1",
+      "date": "2026-10-08T09:30:00Z",
+      "url": "https://github.com/owner/repository/commit/abc123"
+    }
+  ],
+  "counts": {
+    "today": 4,
+    "this_week": 18
+  }
+}
+```
+
+`today` counts commits from midnight UTC until the current time. `this_week` counts commits from Monday at `00:00 UTC` until the current time. The response includes up to 10 recent commits, while statistics can use up to 10 pages of GitHub results.
+
+Successful activity responses are cached per repository for 60 seconds. Concurrent requests for the same repository share one GitHub request. Failed requests are not cached.
+
+The endpoint returns these errors:
+
+| Status | Meaning |
+|---|---|
+| `400` | The repository is missing or does not use the `owner/repository` format |
+| `401` | The Dashboard authentication token is missing or invalid |
+| `404` | The GitHub repository does not exist or is not public |
+| `429` | GitHub rate limit exceeded; `retry_after` may contain the number of seconds to wait |
+| `502` | GitHub could not be reached or returned an unexpected response |
+
+Only public repositories are supported currently. Private repositories require a future GitHub OAuth connection and are not accessed with the Dashboard account credentials.
+
+To test the service locally:
+
+1. Start the backend with `docker compose up --build`.
+2. Create and verify a Dashboard account, then log in to obtain a Dashboard JWT.
+3. Replace `YOUR_DASHBOARD_TOKEN` in the example request with that JWT.
+4. Replace `owner/repository` with a public repository such as `octocat/Hello-World`.
+5. Check the response for recent commits and the `counts` object.
+
+The GitHub client and cache tests can be run without Docker:
+
+```bash
+cd gateway
+go test ./internal/github/ -race
+```
 
 ### Email verification rules
 
@@ -138,5 +214,6 @@ For routes that require login, send the token in the header: `Authorization: Bea
 
 ## Current status
 
-- **Connected:** registration with email verification, login and logout, and the weather widget (real data through the gateway).
+- **Connected:** registration with email verification, login and logout, the weather widget, and the GitHub activity widget for public repositories.
 - **Still demo data:** the trading widget. Its routes (`/api/trading/...`) don't exist in the gateway yet, so placing an order fails.
+- **Not yet supported:** GitHub OAuth and private repository access.
