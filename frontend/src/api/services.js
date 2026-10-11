@@ -13,4 +13,6 @@ export const weatherApi = {
 
 export const githubApi = {
   getActivity: (repo) => request(`/api/github/activity?repo=${encodeURIComponent(repo)}`),
+  connect: () => request("/api/github/connect"),
+  disconnect: () => request("/api/github/connection", { method: "DELETE" }),
 };

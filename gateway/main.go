@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,7 +11,7 @@ import (
 	"time"
 
 	"dashboard/gateway/auth"
-	"dashboard/gateway/internal/github"
+	"dashboard/gateway/internal/proxy"
 	"dashboard/gateway/mailer"
 
 	"github.com/gin-contrib/cors"
@@ -18,6 +19,7 @@ import (
 )
 
 var client = &http.Client{Timeout: 10 * time.Second}
+var errMetadataUnavailable = errors.New("service metadata unavailable")
 
 func getenv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
@@ -51,8 +53,7 @@ func main() {
 	log.Printf("Emails are sent through SMTP server %s", emailSender.Addr())
 
 	authService := auth.New(store, emailSender, jwtSecret)
-	githubClient := github.NewClient()
-	githubActivityClient := github.NewCachedClient(githubClient, time.Minute)
+	githubService := proxy.NewGitHubServiceProxy(getenv("GITHUB_URL", "http://github:4000"))
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
@@ -80,11 +81,15 @@ func main() {
 			return
 		}
 
+		services := []any{weather}
+		if githubMetadata, githubErr := fetchServiceMetadata(c, githubService); githubErr == nil {
+			services = append(services, githubMetadata)
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"client": gin.H{"host": c.ClientIP()},
 			"server": gin.H{
 				"current_time": time.Now().Unix(),
-				"services":     []any{weather},
+				"services":     services,
 			},
 		})
 	})
@@ -102,7 +107,27 @@ func main() {
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	})
 
-	registerGithubRoutes(api, authService.RequireAuth(), githubActivityClient)
+	proxy.RegisterGitHubRoutes(api, authService.RequireAuth(), githubService)
 
 	r.Run(":" + getenv("PORT", "8080"))
+}
+
+func fetchServiceMetadata(c *gin.Context, service *proxy.GitHubServiceProxy) (any, error) {
+	request, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, service.BaseURL()+"/about.json", nil)
+	if err != nil {
+		return nil, err
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, errMetadataUnavailable
+	}
+	var metadata any
+	if err := json.NewDecoder(response.Body).Decode(&metadata); err != nil {
+		return nil, err
+	}
+	return metadata, nil
 }

@@ -14,6 +14,8 @@ export default function GithubWidget({ defaultRepository = "" }) {
   const [activity, setActivity] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(Boolean(defaultRepository));
+  const [connecting, setConnecting] = useState(false);
+  const [connected, setConnected] = useState(() => new URLSearchParams(window.location.search).get("github") === "connected");
 
   useEffect(() => {
     if (!repository) return undefined;
@@ -55,6 +57,31 @@ export default function GithubWidget({ defaultRepository = "" }) {
     setRepository(next);
   }
 
+  async function connectGithub() {
+    setConnecting(true);
+    setError("");
+    try {
+      const { url } = await githubApi.connect();
+      window.location.assign(url);
+    } catch (err) {
+      setError(err.message || "Unable to connect GitHub");
+      setConnecting(false);
+    }
+  }
+
+  async function disconnectGithub() {
+    setConnecting(true);
+    setError("");
+    try {
+      await githubApi.disconnect();
+      setConnected(false);
+    } catch (err) {
+      setError(err.message || "Unable to disconnect GitHub");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   const commits = activity?.commits || [];
   const counts = activity?.counts || { today: 0, this_week: 0 };
 
@@ -76,6 +103,13 @@ export default function GithubWidget({ defaultRepository = "" }) {
           {loading ? <Loader2 size={13} className="animate-spin" /> : "Load"}
         </button>
       </form>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="truncate text-[10px] text-slate-500">{connected ? "GitHub connected" : "Public repositories"}</span>
+        <button type="button" onClick={connected ? disconnectGithub : connectGithub} disabled={connecting} className="text-[10px] font-semibold text-sky-300 hover:text-sky-200 disabled:opacity-60">
+          {connecting ? "Working..." : connected ? "Disconnect" : "Connect GitHub"}
+        </button>
+      </div>
 
       {error && <p className="mt-2 text-[11px] text-amber-300" role="alert">{error}</p>}
 
