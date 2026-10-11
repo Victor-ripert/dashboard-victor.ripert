@@ -43,6 +43,10 @@ type Activity struct {
 	Counts     Counts   `json:"counts"`
 }
 
+type ActivityService interface {
+	Activity(ctx context.Context, repository string, now time.Time) (Activity, error)
+}
+
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
@@ -128,7 +132,7 @@ func (client *Client) fetchCommits(ctx context.Context, owner, repository string
 		decodeErr := json.NewDecoder(response.Body).Decode(&payload)
 		response.Body.Close()
 		if response.StatusCode != http.StatusOK {
-			return nil, &APIError{StatusCode: response.StatusCode}
+			return nil, newAPIError(response)
 		}
 		if decodeErr != nil {
 			return nil, decodeErr
@@ -193,9 +197,31 @@ func startOfWeek(value time.Time) time.Time {
 }
 
 type APIError struct {
-	StatusCode int
+	StatusCode  int
+	RetryAfter  time.Duration
+	RateLimited bool
 }
 
 func (err *APIError) Error() string {
 	return fmt.Sprintf("GitHub API returned status %d", err.StatusCode)
+}
+
+func newAPIError(response *http.Response) *APIError {
+	return &APIError{
+		StatusCode:  response.StatusCode,
+		RetryAfter:  retryAfter(response.Header, time.Now()),
+		RateLimited: response.StatusCode == http.StatusTooManyRequests || response.Header.Get("Retry-After") != "" || response.Header.Get("X-RateLimit-Remaining") == "0",
+	}
+}
+
+func retryAfter(headers http.Header, now time.Time) time.Duration {
+	if seconds, err := strconv.Atoi(headers.Get("Retry-After")); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if reset, err := strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+		if wait := time.Unix(reset, 0).Sub(now); wait > 0 {
+			return wait
+		}
+	}
+	return 0
 }

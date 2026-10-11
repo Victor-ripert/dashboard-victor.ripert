@@ -32,6 +32,14 @@ func githubActivityHandler(service githubActivityService) gin.HandlerFunc {
 				c.JSON(http.StatusNotFound, gin.H{"error": "GitHub repository not found"})
 				return
 			}
+			if errors.As(err, &apiErr) && (apiErr.RateLimited || apiErr.StatusCode == http.StatusTooManyRequests) {
+				response := gin.H{"error": "GitHub rate limit exceeded"}
+				if apiErr.RetryAfter > 0 {
+					response["retry_after"] = int(apiErr.RetryAfter.Seconds())
+				}
+				c.JSON(http.StatusTooManyRequests, response)
+				return
+			}
 			c.JSON(http.StatusBadGateway, gin.H{"error": "GitHub service unavailable"})
 			return
 		}

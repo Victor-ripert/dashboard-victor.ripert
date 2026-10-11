@@ -57,6 +57,21 @@ func TestRecentCommitsReturnsGitHubStatus(t *testing.T) {
 	}
 }
 
+func TestRecentCommitsPreservesRateLimitRetryAfter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Retry-After", "7")
+		response.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newClient(server.URL, server.Client())
+	_, err := client.RecentCommits(context.Background(), "acme/project")
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.RetryAfter != 7*time.Second {
+		t.Fatalf("expected 7-second retry delay, got %v", err)
+	}
+}
+
 func TestCountCommitsUsesUTCDayAndMondayWeekBoundaries(t *testing.T) {
 	now := time.Date(2026, time.March, 4, 3, 30, 0, 0, time.FixedZone("UTC+2", 2*60*60))
 	commits := []Commit{

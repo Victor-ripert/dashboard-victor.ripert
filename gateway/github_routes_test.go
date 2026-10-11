@@ -91,3 +91,17 @@ func TestGithubActivityHandlerMapsUnexpectedErrorsToBadGateway(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
 }
+
+func TestGithubActivityHandlerReturnsRateLimitRetryAfter(t *testing.T) {
+	router := gin.New()
+	router.GET("/api/github/activity", githubActivityHandler(fakeGithubActivityService{err: &github.APIError{
+		StatusCode:  http.StatusForbidden,
+		RetryAfter:  7 * time.Second,
+		RateLimited: true,
+	}}))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/github/activity?repo=acme/project", nil))
+	if recorder.Code != http.StatusTooManyRequests || !strings.Contains(recorder.Body.String(), `"retry_after":7`) {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}

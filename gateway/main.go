@@ -52,6 +52,7 @@ func main() {
 
 	authService := auth.New(store, emailSender, jwtSecret)
 	githubClient := github.NewClient()
+	githubActivityClient := github.NewCachedClient(githubClient, time.Minute)
 
 	r := gin.Default()
 	// Let the front-end (served from another origin) call the gateway
@@ -101,7 +102,7 @@ func main() {
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	})
 
-	registerGithubRoutes(api, authService.RequireAuth(), githubClient)
+	registerGithubRoutes(api, authService.RequireAuth(), githubActivityClient)
 
 	r.Run(":" + getenv("PORT", "8080"))
 }
