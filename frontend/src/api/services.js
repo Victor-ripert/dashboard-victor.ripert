@@ -12,6 +12,5 @@ export const weatherApi = {
 };
 
 export const githubApi = {
-  // TODO: Replace with the route exposed by the future GitHub microservice.
-  getActivity: () => request("/api/github/activity"),
+  getActivity: (repo) => request(`/api/github/activity?repo=${encodeURIComponent(repo)}`),
 };

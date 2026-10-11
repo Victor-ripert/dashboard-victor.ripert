@@ -11,7 +11,7 @@ import (
 
 func TestRecentCommitsNormalizesGitHubResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/repos/acme/project/commits" || request.URL.Query().Get("per_page") != "10" {
+		if request.URL.Path != "/repos/acme/project/commits" || request.URL.Query().Get("per_page") != "100" || request.URL.Query().Get("page") != "1" {
 			t.Fatalf("unexpected request: %s", request.URL.String())
 		}
 		if request.Header.Get("User-Agent") == "" {
