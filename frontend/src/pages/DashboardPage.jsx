@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { CloudSun, TrendingUp } from "lucide-react";
+import { CloudSun, GitBranch, TrendingUp } from "lucide-react";
 import Header from "../components/layout/Header";
 import WidgetPicker from "../components/layout/WidgetPicker";
 import Widget from "../components/ui/Widget";
 import TradingWidget from "../components/widgets/TradingWidget";
 import WeatherWidget from "../components/widgets/WeatherWidget";
+import GithubWidget from "../components/widgets/GithubWidget";
 import { useAuth } from "../auth/useAuth";
 
 const widgetDefinitions = [
   { id: "trading", title: "Trading", icon: TrendingUp, size: "span-4 row-2", component: TradingWidget},
   { id: "weather", title: "Weather", icon: CloudSun, size: "span-3 row-2", component: WeatherWidget},
+  { id: "github", title: "GitHub", icon: GitBranch, size: "span-4 row-2", component: GithubWidget},
 ];
 
 export default function DashboardPage() {
